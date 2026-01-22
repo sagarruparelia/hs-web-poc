@@ -31,7 +31,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   ],
   callbacks: {
-    async jwt({ token, profile }) {
+    async jwt({ token, profile, account }) {
       if (profile) {
         token.sub = profile.sub ?? undefined;
         token.firstName = profile.given_name;
@@ -46,6 +46,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           }
         }
       }
+      // Store id_token for federated logout
+      if (account?.id_token) {
+        token.idToken = account.id_token;
+      }
       return token;
     },
     async session({ session, token }) {
@@ -54,6 +58,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.firstName = token.firstName as string;
         session.user.lastName = token.lastName as string;
         session.user.enterpriseId = token.enterpriseId as string;
+        session.user.idToken = token.idToken as string;
       }
       return session;
     },
