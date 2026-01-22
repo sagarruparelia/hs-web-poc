@@ -8,15 +8,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       type: "oidc",
       issuer: "https://nonprod.identity.healthsafe-id.com",
       clientId: process.env.HSID_CLIENT_ID!,
-      clientSecret: process.env.HSID_CLIENT_SECRET!,
       authorization: {
         params: {
           scope: "openid profile email",
+          code_challenge_method: "S256",
         },
       },
       checks: ["pkce", "state"],
       client: {
-        token_endpoint_auth_method: "client_secret_post",
+        token_endpoint_auth_method: "none",
       },
       profile(profile) {
         return {
