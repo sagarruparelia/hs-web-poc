@@ -4,11 +4,13 @@ declare module "next-auth" {
   interface Session {
     user: {
       id?: string;
+      sub?: string;
       name?: string | null;
       email?: string | null;
       image?: string | null;
       firstName?: string;
       lastName?: string;
+      enterpriseId?: string;
     };
   }
 
@@ -25,5 +27,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     firstName?: string;
     lastName?: string;
+    enterpriseId?: string;
   }
 }

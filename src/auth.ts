@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import { getEnterpriseId } from "@/lib/user-service";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -32,15 +33,27 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async jwt({ token, profile }) {
       if (profile) {
+        token.sub = profile.sub ?? undefined;
         token.firstName = profile.given_name;
         token.lastName = profile.family_name;
+
+        // Fetch enterpriseId immediately after HSID authentication
+        if (profile.sub) {
+          try {
+            token.enterpriseId = await getEnterpriseId(profile.sub);
+          } catch (error) {
+            console.error("Failed to fetch enterprise ID:", error);
+          }
+        }
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
+        session.user.sub = token.sub as string;
         session.user.firstName = token.firstName as string;
         session.user.lastName = token.lastName as string;
+        session.user.enterpriseId = token.enterpriseId as string;
       }
       return session;
     },
