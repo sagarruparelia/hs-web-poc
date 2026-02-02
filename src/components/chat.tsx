@@ -51,15 +51,51 @@ export function Chat() {
         throw new Error("Failed to send message");
       }
 
-      const data = await response.json();
+      const assistantId = crypto.randomUUID();
+      setMessages((prev) => [
+        ...prev,
+        { id: assistantId, role: "assistant", content: "" },
+      ]);
 
-      const assistantMessage: Message = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: data.message,
-      };
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No response body");
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const events = buffer.split("\n\n");
+        buffer = events.pop() ?? "";
+
+        for (const event of events) {
+          const eventLine = event
+            .split("\n")
+            .find((l) => l.startsWith("event: "));
+          const dataLine = event
+            .split("\n")
+            .find((l) => l.startsWith("data: "));
+          if (!eventLine || !dataLine) continue;
+
+          const eventType = eventLine.slice("event: ".length);
+          const data = dataLine.slice("data: ".length);
+
+          if (eventType === "done") break;
+          if (eventType === "message") {
+            const chunk: string = JSON.parse(data);
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantId
+                  ? { ...msg, content: msg.content + chunk }
+                  : msg
+              )
+            );
+          }
+        }
+      }
     } catch (error) {
       console.error("Chat error:", error);
       const errorMessage: Message = {

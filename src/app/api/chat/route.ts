@@ -6,10 +6,6 @@ interface ChatRequest {
   sessionId: string;
 }
 
-interface ExternalChatResponse {
-  response: string;
-}
-
 export async function POST(request: NextRequest) {
   const session = await auth();
 
@@ -67,10 +63,37 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const data: ExternalChatResponse = await chatResponse.json();
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      const reader = chatResponse.body?.getReader();
+      if (!reader) {
+        controller.enqueue(encoder.encode("event: done\ndata: \n\n"));
+        controller.close();
+        return;
+      }
+      const decoder = new TextDecoder();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          controller.enqueue(
+            encoder.encode(`event: message\ndata: ${JSON.stringify(chunk)}\n\n`)
+          );
+        }
+        controller.enqueue(encoder.encode("event: done\ndata: \n\n"));
+      } finally {
+        controller.close();
+      }
+    },
+  });
 
-  return NextResponse.json({
-    message: data.response,
-    sessionId,
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
   });
 }
